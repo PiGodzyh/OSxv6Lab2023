@@ -1,0 +1,4 @@
+syscall()
+15
+SYS_exec
+U-mode
