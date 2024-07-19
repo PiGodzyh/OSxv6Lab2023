@@ -1,0 +1,3 @@
+struct usyscall{
+    int pid;
+};

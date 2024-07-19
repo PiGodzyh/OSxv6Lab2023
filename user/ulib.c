@@ -4,6 +4,7 @@
 #ifdef LAB_PGTBL
 #include "kernel/riscv.h"
 #include "kernel/memlayout.h"
+#include "kernel/usyscall.h"
 #endif
 #include "user/user.h"
 
