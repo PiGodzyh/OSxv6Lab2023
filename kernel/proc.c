@@ -212,7 +212,7 @@ proc_pagetable(struct proc *p)
     return 0;
   }
   if(mappages(pagetable, USYSCALL, PGSIZE,
-              (uint64)(p->trapframe), PTE_R | PTE_W) < 0){
+              (uint64)(p->usyscall), PTE_R | PTE_U) < 0){
     uvmunmap(pagetable, TRAPFRAME, 1, 0);//解除之前的映射
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmfree(pagetable, 0);
