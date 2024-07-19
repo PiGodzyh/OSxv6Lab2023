@@ -15,6 +15,37 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+void _vmprint(pagetable_t pagetable, int level)
+{
+  for(int i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+    // 检查pte的有效性
+    if(pte & PTE_V )
+    {
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      // 打印树的深度
+      for(int j = 0; j < level; j++)
+          printf(" ..");
+          
+      printf("%d: pte %p pa %p\n",i,pte,child);
+      // 第三级页表存放的是物理地址，页表中页表项中W位，R位，X位起码有一位会被设置为1。如果是索引页表则这些值是0
+      if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+        _vmprint((pagetable_t)child,level+1);// 还没到第三级，继续递归。
+      }
+        
+    }
+  }
+}
+
+void
+vmprint(pagetable_t pagetable)
+{
+  printf("page table %p\n", pagetable);
+  _vmprint(pagetable, 1);
+}
+
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
