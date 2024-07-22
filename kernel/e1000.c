@@ -102,7 +102,32 @@ e1000_transmit(struct mbuf *m)
   // the TX descriptor ring so that the e1000 sends it. Stash
   // a pointer so that it can be freed after sending.
   //
-  
+  uint32 tail;
+  struct tx_desc *desc;
+
+  acquire(&e1000_lock);//获取锁
+  tail = regs[E1000_TDT];
+  desc = &tx_ring[tail];
+  // 检查队列是否满
+  if ((desc->status & E1000_TXD_STAT_DD) == 0) {
+    release(&e1000_lock);
+    return -1;
+  }
+  // 释放空间
+  if (tx_mbufs[tail]) {
+    mbuffree(tx_mbufs[tail]);
+  }
+  // 填充描述符
+  desc->addr = (uint64) m->head;
+  desc->length = m->len;
+  desc->cmd = E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS;
+  tx_mbufs[tail] = m;
+
+  // 防止编译器和处理器对指令进行乱序执行
+  __sync_synchronize();
+
+  regs[E1000_TDT] = (tail + 1) % TX_RING_SIZE;
+  release(&e1000_lock);
   return 0;
 }
 
@@ -115,6 +140,31 @@ e1000_recv(void)
   // Check for packets that have arrived from the e1000
   // Create and deliver an mbuf for each packet (using net_rx()).
   //
+  //无需锁
+  int tail = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
+  struct rx_desc *desc = &rx_ring[tail];
+
+  while ((desc->status & E1000_RXD_STAT_DD)) {
+    if(desc->length > MBUF_SIZE) {
+      panic("e1000 len");
+    }
+    // 更新长度
+    rx_mbufs[tail]->len = desc->length;
+    // 发送
+    net_rx(rx_mbufs[tail]);     
+    // 分配空间
+    rx_mbufs[tail] = mbufalloc(0);
+    if (!rx_mbufs[tail]) {
+      panic("e1000 no mubfs");
+    }
+    desc->addr = (uint64) rx_mbufs[tail]->head;
+    desc->status = 0;
+    
+    tail = (tail + 1) % RX_RING_SIZE;
+    desc = &rx_ring[tail];
+  }
+
+  regs[E1000_RDT] = (tail - 1) % RX_RING_SIZE;
 }
 
 void
